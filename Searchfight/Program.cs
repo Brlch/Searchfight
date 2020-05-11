@@ -14,39 +14,81 @@ namespace Searchfight
     {
         static async Task Main(string[] args)
         {
-
-
-
-            HttpClient client = new HttpClient();
-            foreach (var arg in args)
+            //Receive search terms alredy in args
+            List<String> SearchTerms = args.ToList();
+            Int64 tmpPopularityNumber = -1;
+            if(SearchTerms.Count==0)
             {
-                Console.Write(arg + ":");
-
-                //Yahoo Side
-                Console.Write(" Yahoo: ");
-                //var response = await client.GetAsync("");
-                var response = await client.GetAsync("https://search.yahoo.com/search?p=" + arg);
-                var dataObjects = response.Content.ReadAsStringAsync().Result;
-                List<String> LstStrings = new List<String>(dataObjects.Split("class=\"next\""));
-                Double ResultsYahoo = Double.Parse(LstStrings.Last().Split("span>")[1].Split(" ")[0].Replace(",", ""));
-                Console.Write(ResultsYahoo);
+                Console.WriteLine("No terms provided.");
+                return;
+            }
 
 
-                //Google Side
-                Console.Write(" Google: ");
-                //var response = await client.GetAsync("");
-                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.57 Safari/537.17");
-                response = await client.GetAsync("https://www.google.com/search?q=" + arg);
-                dataObjects = response.Content.ReadAsStringAsync().Result;
-                String datos = dataObjects.Split("id=\"result-stats\">").Last().Split("resul")[0];
-                Regex digitsOnly = new Regex(@"[^\d]");
-                Double ResultsGoogle = Double.Parse(digitsOnly.Replace(datos, ""));
-                Console.Write(ResultsGoogle);
+            //Max popularity number by engine (value and name in tuple)
+            Dictionary<Logic.SupportedSearchEngines, Tuple<Int64,String>> MaxPerEngine = new Dictionary<Logic.SupportedSearchEngines, Tuple<Int64,String>>();
+            
+            //Max popularity number overall
+            Int64 MaxOverall = 0;
+            String OverallWinner = "";
+
+            foreach (var term in SearchTerms)
+            {
+                //Line start
+                Console.Write(term + ":");
+
+
+               
+
+                // Run through all supported engines
+                foreach (Logic.SupportedSearchEngines engine in Enum.GetValues(typeof(Logic.SupportedSearchEngines)))
+                {
+
+                    //Initialize if not alredy done so
+                    if (!MaxPerEngine.ContainsKey(engine))
+                        MaxPerEngine[engine] = new Tuple<long, string>(0,"");
+
+                    try
+                    {
+                        Console.Write(" "+Enum.GetName(typeof(Logic.SupportedSearchEngines),engine)+": ");
+
+                        //Get Popularity number from Logic and compare maximums
+                        tmpPopularityNumber = await Logic.GetPopularityNumber(engine, term);
+                        if(tmpPopularityNumber>MaxOverall)
+                        {
+                            //Handle possible ties
+                            OverallWinner = tmpPopularityNumber == MaxOverall ? OverallWinner + "," + term : term;
+                        }
+                        MaxOverall = Math.Max(MaxOverall, tmpPopularityNumber);
+                        if(tmpPopularityNumber> MaxPerEngine[engine].Item1)
+                        {
+                            //Same as previous, but for every engine
+                            MaxPerEngine[engine] = new Tuple<long, string>(tmpPopularityNumber, (MaxPerEngine[engine].Item1 == tmpPopularityNumber ? MaxPerEngine[engine].Item2 + ", ": term) );
+
+                        }
+
+                        Console.Write(tmpPopularityNumber.ToString());
+                    }
+                    catch (Exception ex)
+                    {
+                        //Log errors if any arise
+                        Console.Write(" - ");
+                        System.Diagnostics.Debug.WriteLine(ex.Message);
+                    }
+                }
 
                 //Finished line
                 Console.Write("\n");
 
             }
+
+
+            //Winners section
+            List<String> winners = new List<string>();
+            foreach (Logic.SupportedSearchEngines engine in Enum.GetValues(typeof(Logic.SupportedSearchEngines)))
+                Console.WriteLine(Enum.GetName(typeof(Logic.SupportedSearchEngines),engine)+" winner: " + MaxPerEngine[engine].Item2);
+
+            Console.WriteLine("Total winner: " + OverallWinner);
+
         }
 
 
