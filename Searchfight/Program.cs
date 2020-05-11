@@ -10,9 +10,9 @@ using System.Text.RegularExpressions;
 
 namespace Searchfight
 {
-    class Program
+    public class Program
     {
-        static async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
             //Receive search terms alredy in args
             List<String> SearchTerms = args.ToList();
